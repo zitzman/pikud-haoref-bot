@@ -11,4 +11,4 @@ workers:
         type: SECRET
       - key: POLL_INTERVAL
         scope: RUN_TIME
-        value: "2"
+        value: "10"
