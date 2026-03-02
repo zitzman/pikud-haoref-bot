@@ -1,0 +1,13 @@
+name: tzeva-adom-bot
+workers:
+  - name: tzeva-adom-bot
+    dockerfile_path: Dockerfile
+    instance_size_slug: basic-xxs
+    instance_count: 1
+    envs:
+      - key: SLACK_WEBHOOK_URL
+        scope: RUN_TIME
+        type: SECRET
+      - key: POLL_INTERVAL
+        scope: RUN_TIME
+        value: "2"

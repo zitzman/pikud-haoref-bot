@@ -1,0 +1,6 @@
+services:
+  tzeva-adom-bot:
+    build: .
+    restart: always
+    env_file:
+      - .env
