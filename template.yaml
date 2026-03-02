@@ -1,0 +1,42 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: Pikud HaOref -> Slack alert bot
+
+Parameters:
+  SlackWebhookUrl:
+    Type: String
+    NoEcho: true
+    Description: Slack Incoming Webhook URL
+
+Globals:
+  Function:
+    Runtime: python3.12
+    Timeout: 30
+    Architectures:
+      - x86_64
+
+Resources:
+  AlertFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      FunctionName: pikud-haoref-bot
+      Handler: lambda_function.handler
+      Environment:
+        Variables:
+          SLACK_WEBHOOK_URL: !Ref SlackWebhookUrl
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ssm:GetParameter
+                - ssm:PutParameter
+                - ssm:DeleteParameter
+              Resource: !Sub arn:aws:ssm:${AWS::Region}:${AWS::AccountId}:parameter/pikud-haoref-bot/*
+      Events:
+        PollSchedule:
+          Type: ScheduleV2
+          Properties:
+            ScheduleExpression: rate(1 minute)
+            ScheduleExpressionTimezone: Asia/Jerusalem
+            FlexibleTimeWindow:
+              Mode: "OFF"
