@@ -126,7 +126,11 @@ def fetch_active_alert() -> Optional[dict]:
     decoded_content = response.content.decode("utf-8-sig").strip()
     if not decoded_content:
         return None
-    return json.loads(decoded_content)
+    try:
+        return json.loads(decoded_content)
+    except json.JSONDecodeError:
+        logger.warning("Non-JSON response from API (len=%d): %r", len(decoded_content), decoded_content[:120])
+        return None
 
 
 def format_slack_message(alert: dict) -> dict:

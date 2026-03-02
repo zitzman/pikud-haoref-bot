@@ -1,4 +1,5 @@
 name: tzeva-adom-bot
+region: fra
 workers:
   - name: tzeva-adom-bot
     dockerfile_path: Dockerfile
