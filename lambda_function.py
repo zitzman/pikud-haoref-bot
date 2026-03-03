@@ -22,37 +22,39 @@ REQUEST_HEADERS = {
     "Accept-Language": "he-IL,he;q=0.9,en-US;q=0.8,en;q=0.7",
 }
 
+# Emoji by category (best-effort visual cue only)
 CATEGORY_EMOJI = {
     "1": "🚀",
     "2": "🛸",
     "3": "🌍",
     "4": "☣️",
-    "6": "🌊",
+    "6": "⚠️",
     "7": "✈️",
     "13": "☢️",
     "101": "🔫",
 }
 
-CATEGORY_TITLE_EN = {
-    "1": "Missile/Rocket Fire",
-    "2": "UAV/Drone Intrusion",
-    "3": "Earthquake",
-    "4": "Hazardous Materials",
-    "6": "Tsunami",
-    "7": "Hostile Aircraft",
-    "13": "Nuclear Threat",
-    "101": "Terrorist Infiltration",
+# Translate the Hebrew title string the API returns — more reliable than category numbers.
+# Substrings are matched so partial titles (e.g. with "- האירוע הסתיים" appended) still match.
+TITLE_TRANSLATIONS = {
+    "ירי רקטות וטילים": "Missile/Rocket Fire",
+    "חדירת כלי טיס עויין": "UAV/Drone Intrusion",
+    "חדירת כטב\"מ": "UAV/Drone Intrusion",
+    "כלי טיס עויין": "Hostile Aircraft",
+    "רעידת אדמה": "Earthquake",
+    "חומרים מסוכנים": "Hazardous Materials",
+    "צונאמי": "Tsunami",
+    "נשק בלתי קונבנציונלי": "Unconventional Weapon",
+    "חדירת מחבלים": "Terrorist Infiltration",
 }
 
-CATEGORY_INSTRUCTION_EN = {
-    "1": "Enter a protected space and remain for 10 minutes.",
-    "2": "Enter a protected space and remain for 10 minutes.",
-    "3": "Move away from buildings, avoid elevators, and take cover under a sturdy table.",
-    "4": "Enter a building, close windows and doors, and await further instructions.",
-    "6": "Move immediately to high ground or upper floors of a building.",
-    "7": "Enter a protected space and remain until further notice.",
-    "13": "Enter a building, close windows and doors, and await further instructions.",
-    "101": "Enter a building, lock doors, and await further instructions.",
+# English shelter instructions keyed by Hebrew desc substring
+DESC_TRANSLATIONS = {
+    "מרחב המוגן": "Enter a protected space and remain for 10 minutes.",
+    "רעידת אדמה": "Move away from buildings, avoid elevators, and take cover under a sturdy table.",
+    "חומרים מסוכנים": "Enter a building, close windows and doors, and await further instructions.",
+    "צונאמי": "Move immediately to high ground or upper floors of a building.",
+    "מחבלים": "Enter a building, lock doors, and await further instructions.",
 }
 
 CITY_NAME_EN = {
@@ -144,11 +146,24 @@ def fetch_active_alert() -> Optional[dict]:
         return None
 
 
+def translate_hebrew_field(hebrew_text: str, translations: dict) -> Optional[str]:
+    """Return the English translation whose key appears as a substring of hebrew_text, or None."""
+    for hebrew_key, english_value in translations.items():
+        if hebrew_key in hebrew_text:
+            return english_value
+    return None
+
+
 def format_slack_message(alert: dict) -> dict:
     category_id = str(alert.get("cat", "1"))
+    hebrew_title = alert.get("title", "")
+    hebrew_desc = alert.get("desc", "")
+
     emoji = CATEGORY_EMOJI.get(category_id, "⚠️")
-    alert_title = CATEGORY_TITLE_EN.get(category_id, alert.get("title", "Alert"))
-    shelter_instruction = CATEGORY_INSTRUCTION_EN.get(category_id, alert.get("desc", ""))
+    alert_title = translate_hebrew_field(hebrew_title, TITLE_TRANSLATIONS) or hebrew_title or "Alert"
+    shelter_instruction = translate_hebrew_field(hebrew_desc, DESC_TRANSLATIONS) or ""
+
+    logger.info("Formatting alert: cat=%s title=%r -> %r", category_id, hebrew_title, alert_title)
 
     hebrew_cities = alert.get("data", [])
     english_cities = [CITY_NAME_EN.get(city, city) for city in hebrew_cities]
