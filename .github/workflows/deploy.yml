@@ -20,20 +20,43 @@ jobs:
           aws-secret-access-key: ${{ secrets.AWS_SECRET_ACCESS_KEY }}
           aws-region: il-central-1
 
-      - name: Delete stack if in ROLLBACK_COMPLETE
+      - name: Delete stack if stuck or has incompatible resource types
         run: |
           STATUS=$(aws cloudformation describe-stacks \
             --stack-name pikud-haoref-bot \
             --region il-central-1 \
             --query 'Stacks[0].StackStatus' \
             --output text 2>/dev/null || echo "DOES_NOT_EXIST")
-          if [ "$STATUS" = "ROLLBACK_COMPLETE" ]; then
-            echo "Stack is in ROLLBACK_COMPLETE, deleting before redeploy..."
+
+          echo "Current stack status: $STATUS"
+          SHOULD_DELETE=false
+
+          case "$STATUS" in
+            ROLLBACK_COMPLETE|UPDATE_ROLLBACK_COMPLETE|ROLLBACK_FAILED|UPDATE_ROLLBACK_FAILED|CREATE_FAILED)
+              echo "Stack is in a stuck state, will delete."
+              SHOULD_DELETE=true
+              ;;
+          esac
+
+          # Also delete if stack still contains old AWS::Scheduler::Schedule resource
+          if [ "$STATUS" != "DOES_NOT_EXIST" ] && [ "$SHOULD_DELETE" = "false" ]; then
+            OLD_RESOURCE=$(aws cloudformation describe-stack-resources \
+              --stack-name pikud-haoref-bot \
+              --region il-central-1 \
+              --query "StackResources[?ResourceType=='AWS::Scheduler::Schedule'].ResourceType" \
+              --output text 2>/dev/null)
+            if [ -n "$OLD_RESOURCE" ]; then
+              echo "Stack has old AWS::Scheduler::Schedule resource, will delete to migrate."
+              SHOULD_DELETE=true
+            fi
+          fi
+
+          if [ "$SHOULD_DELETE" = "true" ]; then
             aws cloudformation delete-stack --stack-name pikud-haoref-bot --region il-central-1
             aws cloudformation wait stack-delete-complete --stack-name pikud-haoref-bot --region il-central-1
             echo "Stack deleted."
           else
-            echo "Stack status: $STATUS — no cleanup needed."
+            echo "No cleanup needed."
           fi
 
       - name: Build
